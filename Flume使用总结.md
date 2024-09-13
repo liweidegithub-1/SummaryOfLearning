@@ -1,4 +1,4 @@
-# Flume使用总结
+# Flume使用总结([Flume 1.9用户手册中文版 — 可能是目前翻译最完整的版本了 (liyifeng.org)](https://flume.liyifeng.org/#))
 
 ## 一、Source
 
@@ -172,5 +172,42 @@ a1.channels.c1.dataDirs = /mnt/flume/data1,/mnt/flume/data2
 
 ```
 这个Sink将event写入hdfs，目前支持创建文本和序列文件，并且支持这两种文件的压缩。可以根据写入时间、文件大小或event数量定期滚动文件（关闭当前文件并创建新文件）。它还可以根据event自带的时间戳或系统时间等属性对数据进行分区。
+eg:
+a1.channels = c1
+a1.sinks = k1
+a1.sinks.k1.type = hdfs
+a1.sinks.k1.channel = c1
+a1.sinks.k1.hdfs.path = /flume/events/%y-%m-%d/%H%M/%S
+a1.sinks.k1.hdfs.filePrefix = events-
+a1.sinks.k1.hdfs.round = true
+a1.sinks.k1.hdfs.roundValue = 10
+a1.sinks.k1.hdfs.roundUnit = minute
 ```
 
+![hdfs转义字符](C:\Users\liwei\Pictures\Screenshots\hdfs转义字符.png)![hdfssink](C:\Users\liwei\Pictures\Screenshots\hdfssink.png)
+
+### 2、Hive Sink
+
+```
+这个sink将包含分隔文本或JSON数据的event直接流式传输到Hive表或分区上。Event使用Hive事务进行写入，一旦一组event提交给hive，他们就会立即显示给hive查询。即将写入的目标分区既可以预先自己创建，也可以选择让flume创建。写入的event数据中的字段将映射到hive表中的相应列
+eg:
+a1.channels = c1
+a1.channels.c1.type = memory
+a1.sinks = k1
+a1.sinks.k1.type = hive
+a1.sinks.k1.channel = c1
+a1.sinks.k1.hive.metastore = thrift://127.0.0.1:9083
+a1.sinks.k1.hive.database = logsdb
+a1.sinks.k1.hive.table = weblogs
+a1.sinks.k1.hive.partition = asia,%{country},%y-%m-%d-%H-%M
+a1.sinks.k1.useLocalTimeStamp = false
+a1.sinks.k1.round = true
+a1.sinks.k1.roundValue = 10
+a1.sinks.k1.roundUnit = minute
+a1.sinks.k1.serializer = DELIMITED
+a1.sinks.k1.serializer.delimiter = "\t"
+a1.sinks.k1.serializer.serdeSeparator = '\t'
+a1.sinks.k1.serializer.fieldnames =id,,msg
+```
+
+![hivesink](C:\Users\liwei\Pictures\Screenshots\hivesink.png)![hivesinkserialize](C:\Users\liwei\Pictures\Screenshots\hivesinkserialize.png)
