@@ -211,3 +211,162 @@ a1.sinks.k1.serializer.fieldnames =id,,msg
 ```
 
 ![hivesink](C:\Users\liwei\Pictures\Screenshots\hivesink.png)![hivesinkserialize](C:\Users\liwei\Pictures\Screenshots\hivesinkserialize.png)
+
+### 3、Logger Sink
+
+```
+使用INFO级别把Event内容输出到日志中，一般用来测试、调试使用。
+eg:
+a1.channels = c1
+a1.sinks = k1
+a1.sinks.k1.type = logger
+a1.sinks.k1.channel = c1
+```
+
+![loggersink](C:\Users\liwei\Pictures\Screenshots\loggersink.png)
+
+### 4、Avro Sink
+
+```
+这个Sink可以作为flume分层收集特征的下半部分。发送到此sink的event将转换为avro event发生到指定的主机/端口上
+eg:
+a1.channels = c1
+a1.sinks = k1
+a1.sinks.k1.type = avro
+a1.sinks.k1.channel = c1
+a1.sinks.k1.hostname = 10.10.10.10
+a1.sinks.k1.port = 4545
+```
+
+![avrosink](C:\Users\liwei\Pictures\Screenshots\avrosink.png)
+
+### 5、HBaseSink
+
+```
+这个sink将数据写入HBase，配置指定的 HbaseEventSerializer 接口的实现类用于将 Event 转换为 HBase put 或 increments。 然后将这些 put 和 increments 写入 HBase。 该Sink提供与 HBase 相同的一致性保证，HBase 是当前行的原子性。 如果 Hbase 无法写入某些 Event，则Sink将重试该事务中的所有 Event。
+eg:
+a1.channels = c1
+a1.sinks = k1
+a1.sinks.k1.type = hbase
+a1.sinks.k1.table = foo_table
+a1.sinks.k1.columnFamily = bar_cf
+a1.sinks.k1.serializer = org.apache.flume.sink.hbase.RegexHbaseEventSerializer
+a1.sinks.k1.channel = c1
+```
+
+![hbasesink](C:\Users\liwei\Pictures\Screenshots\hbasesink.png)
+
+### 6、Kafka Sink
+
+```
+这个sink可以把数据发送到Kafka topic上
+eg:
+a1.sinks.k1.channel = c1
+a1.sinks.k1.type = org.apache.flume.sink.kafka.KafkaSink
+a1.sinks.k1.kafka.topic = mytopic
+a1.sinks.k1.kafka.bootstrap.servers = localhost:9092
+a1.sinks.k1.kafka.flumeBatchSize = 20
+a1.sinks.k1.kafka.producer.acks = 1
+a1.sinks.k1.kafka.producer.linger.ms = 1
+a1.sinks.k1.kafka.producer.compression.type = snappy
+```
+
+![image-20240914115700785](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914115700785.png)
+
+## 四、配置信息
+
+### 1、channel选择器
+
+```
+没有手动配置，默认channel选择器类型为replicating（复制），选择器只针对source配置了多个channel的时候。
+这个配置是source才有的配置，一个source可以向多个channel同时写数据，而以何种方式向多个channel写数据就需要通过配置channel选择器来决定
+```
+
+#### 1.1、复制选择器
+
+```
+这个选择器会把数据完整地发送到每一个channel
+eg:
+a1.sources = r1
+a1.channels = c1 c2 c3
+a1.sources.r1.selector.type = replicating
+a1.sources.r1.channels = c1 c2 c3
+a1.sources.r1.selector.optional = c3
+```
+
+![image-20240914135207413](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914135207413.png)
+
+#### 1.2、多路复用选择器
+
+```
+这个选择器可以通过配置一定的规则把数据分发给相应的channel
+eg:
+a1.sources = r1
+a1.channels = c1 c2 c3 c4
+a1.sources.r1.selector.type = multiplexing
+a1.sources.r1.selector.header = state        #以每个Event的header中的state这个属性的值作为选择channel的依据
+a1.sources.r1.selector.mapping.CZ = c1       #如果state=CZ，则选择c1这个channel
+a1.sources.r1.selector.mapping.US = c2 c3    #如果state=US，则选择c2 和 c3 这两个channel
+a1.sources.r1.selector.default = c4          #默认使用c4这个channel
+```
+
+![image-20240914135438860](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914135438860.png)
+
+#### 1.3、自定义选择器
+
+```
+通过实现org.apache.flume.ChannelSelector接口创建自定义选择器
+eg:
+a1.sources = r1
+a1.channels = c1
+a1.sources.r1.selector.type = org.liyifeng.flume.channel.MyChannelSelector
+```
+
+![image-20240914135807032](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914135807032.png)
+
+### 2、sink组逻辑处理器
+
+```
+这个组件可以把多个sink分成一个组，这时候sink逻辑处理器可以对同一个组里的几个sink进行负载均衡或其中一个sink发生故障后将输出event的任务转移到其他sink上
+负载均衡就是把channel里的event按照配置的负载机制（比如轮询）分别发送到sink各自对应的目的地；故障转移就是这N个sink同一时间只能有一个在工作，其余作为备用，工作的sink挂掉之后备用的sink顶上
+eg:
+a1.sinkgroups = g1
+a1.sinkgroups.g1.sinks = k1 k2
+a1.sinkgroups.g1.processor.type = load_balance
+```
+
+![image-20240914143346846](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914143346846.png)
+
+#### 2.1、故障转移
+
+```
+	故障转移组逻辑处理器维护了一个发送event失败的sink列表，保证有一个sink是可以用来发送event的
+	故障转移机制的工作原理是将故障sink降级到一个池中，在池中为他们分配冷却时间（超时时间），这个冷却期会随着连续的故障而增加。sink成功发送event后，会恢复到实时池中。sink具有优先级，数值越大优先级越高。如果发送event时sink发生故障，会继续尝试下一个具有最高优先级的sink。例如优先级100的sink会在优先级80的sink之前优先激活。
+	使用故障转移选择器，不仅要设置sink组的选择器为failover，还要为每个sink设置一个唯一的优先级数值。
+eg:
+a1.sinkgroups = g1
+a1.sinkgroups.g1.sinks = k1 k2
+a1.sinkgroups.g1.processor.type = failover
+a1.sinkgroups.g1.processor.priority.k1 = 5
+a1.sinkgroups.g1.processor.priority.k2 = 10
+a1.sinkgroups.g1.processor.maxpenalty = 10000
+```
+
+![image-20240914150724548](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914150724548.png)
+
+#### 2.2、负载均衡
+
+```
+	负载均衡sink选择器提供了多个sink上进行负载均衡流量的功能，它维护一个活动sink列表的索引来实现负载的分配。默认支持轮询（raund_robin）和随机（random）两种选择机制分配负载，默认是轮询。
+	工作时，此选择器使用期配置的选择机制选择下一个sink并调用它。如果所选的sink无法正常工作，则处理器通过其配置的选择机制选择下一个可用的sink。此实现不会将失败的sink列入黑名单，而是继续乐观的尝试每个可以的sink。
+	如果所有sink都失败了，选择其会将故障抛给sink运行器。
+	如果backoff设置为true则启用退避机制，失败的sink会被放入黑名单，达到一定的超时时间会自动从黑名单中移除，如果从黑名单移除仍然失败，则会再次进入黑名单且超时时间翻倍，以避免在无响应的sink上浪费过长时间。如果没有启用退避机制，发生sink传输失败后，会将本次负载传给下一个sink继续尝试，因此这种情况下是不均衡的。
+eg:
+a1.sinkgroups = g1
+a1.sinkgroups.g1.sinks = k1 k2
+a1.sinkgroups.g1.processor.type = load_balance
+a1.sinkgroups.g1.processor.backoff = true
+a1.sinkgroups.g1.processor.selector = random
+```
+
+![image-20240914151849599](C:\Users\liwei\AppData\Roaming\Typora\typora-user-images\image-20240914151849599.png)
