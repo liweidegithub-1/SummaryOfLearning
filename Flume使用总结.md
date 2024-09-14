@@ -211,3 +211,4 @@ a1.sinks.k1.serializer.fieldnames =id,,msg
 ```
 
 ![hivesink](C:\Users\liwei\Pictures\Screenshots\hivesink.png)![hivesinkserialize](C:\Users\liwei\Pictures\Screenshots\hivesinkserialize.png)
+![](image-20230209112203413.png)
