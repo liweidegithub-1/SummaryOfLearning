@@ -211,4 +211,3 @@ a1.sinks.k1.serializer.fieldnames =id,,msg
 ```
 
 ![hivesink](C:\Users\liwei\Pictures\Screenshots\hivesink.png)![hivesinkserialize](C:\Users\liwei\Pictures\Screenshots\hivesinkserialize.png)
-![](https://gitee.com/shi-jinqing-hebei_17320691281/picture_store/raw/master/image-20230209112203413.png)
