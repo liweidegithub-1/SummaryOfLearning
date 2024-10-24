@@ -84,3 +84,91 @@ SELECT tuple(1,3,'a') AS x, toTypeName(x);
 SELECT CAST((['a','b','c'], [1,2,3]),'Map(String, Int8)') AS x, toTypeName(x);
 ```
 
+## 二、表引擎
+
+### 2.1、MergeTree
+
+```mysql
+MergeTree系列的引擎被设计用于插入极大量的数据到一张表当中，数据可以以数据片段的形式一个接着一个的快速写入，数据片段在后台按照一定的规则进行合并。相比在插入时不断修改已存储的数据，这种策略会高效很多。
+主要特点：
+	存储的数据按照主键排序
+	如果指定了分区键可以使用分区，在相同数据集和相同结果集的情况下，clickhouse中某些带分区的操作会比普通操作更快。查询中指定了分区键时，clickhouse会自动截取分区数据，加快查询效率。
+建表方式：
+CREATE TABLE [IF NOT EXISTS] [db.]table_name [ON CLUSTER cluster]
+(
+    name1 [type1] [DEFAULT|MATERIALIZED|ALIAS expr1] [TTL expr1],
+    name2 [type2] [DEFAULT|MATERIALIZED|ALIAS expr2] [TTL expr2],
+    ...
+    INDEX index_name1 expr1 TYPE type1(...) GRANULARITY value1,
+    INDEX index_name2 expr2 TYPE type2(...) GRANULARITY value2
+) ENGINE = MergeTree()
+ORDER BY expr
+[PARTITION BY expr]
+[PRIMARY KEY expr]
+[SAMPLE BY expr]
+[TTL expr [DELETE|TO DISK 'xxx'|TO VOLUME 'xxx'], ...]
+[SETTINGS name=value, ...];
+
+ENGINE：引擎名和参数
+ORDER BY（必选）：排序键，可以是一组列的元组或任意表达式，如果没有使用PRIMARY KEY显示指定主键，clickhouse会使用排序键作为主键，如果不需要排序，可以使用ORDER BY tuple()
+PARTITION BY：分区键，大多数情况下，不需要使用分区键，即使需要使用，也不需要使用比月更细粒度的分区键。分区不会加快查询。不要使用客户端指定分区标识符或分区字段名称来对数据进行分区（而是将分区字段标识作为order by表达式的第一列来指定分区）。要按月分区，可以使用表达式toYYYYMM(date_column)，date_column是一个Date类型的列，分区名格式会是"YYYYMM"
+PRIMARY KEY:如果要选择与排序键不同的主键，可以在这里指定。默认情况下主键和排序键相同，因此大部分情况下不需要专门指定一个PRIMARY KEY子句
+TTL：指定行存储的持续时间并定义数据片段在硬盘和卷上的移动逻辑的规则列表。表达式中必须存在至少一个Date或Datetime类型的列。如：TTL date + INTERVAL 1 DAY。规则类型(DELETE|TO DISK 'XXX'|TO VOLUME 'XXX')指定了当满足条件（到达指定时间）时所要执行的动作：移除过期的行，还是将数据片段（如果数据片段中的所有行都满足表达式的话）移动到指定的磁盘(TO DISK 'XXX')或卷(TO VOLUME 'XXX')。默认的规则是移除（DELETE）。可以在列表中指定多个规则，但最多只能有一个DELETE的规则。
+列TTL：当列中的值过期时，clickhouse会将他们替换成该列数据类型的默认值，如果数据片段中列的所有值均已过期，则clickhouse会从文件系统中的数据片段中删除此列。TTL子句不用用于主键字段
+eg：
+CREATE TABLE example_table
+(
+    d DateTime,
+    a Int TTL d + INTERVAL 1 MONTH,
+    b Int TTL d + INTERVAL 1 MONTH,
+    c String
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(d)
+ORDER BY d;
+表TTL：可以设置一个用于移除过期行的表达式，以及多个用于在磁盘或卷上自动移除数据片段的表达式。当表中的行过期时，clickhouse会删除所有对应的行。对于数据片段的转移特性，必须所有的行都满足转移条件。
+格式：
+TTL expr
+    [DELETE|TO DISK 'xxx'|TO VOLUME 'xxx'][, DELETE|TO DISK 'aaa'|TO VOLUME 'bbb'] ...
+    [WHERE conditions]
+    [GROUP BY key_expr [SET v1 = aggr_func(v1) [, v2 = aggr_func(v2) ...]] ]
+GROUP BY：聚合过期的行
+WHERE：指定哪些过期的行会被删除或聚合。GROUP BY 表达式必须是表主键的前缀。如果某列不是GROUP BY 表达式的一部分，也没有在SET从句中显示引用，结果行中相应的列的值是随机的
+eg：
+CREATE TABLE example_table
+(
+    d DateTime,
+    a Int
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(d)
+ORDER BY d
+TTL d + INTERVAL 1 MONTH DELETE,
+    d + INTERVAL 1 WEEK TO VOLUME 'aaa',
+    d + INTERVAL 2 WEEK TO DISK 'bbb';
+eg：
+创建一张表，设置一个月后数据过期，这些过期的行中日期为星期一的删除：
+CREATE TABLE table_with_where
+(
+    d DateTime,
+    a Int
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(d)
+ORDER BY d
+TTL d + INTERVAL 1 MONTH DELETE WHERE toDayOfWeek(d) = 1;
+eg：
+创建一张表，设置过期的列会被聚合。列x包含每组行中的最大值，y为最小值，d为可能任意值。
+CREATE TABLE table_for_aggregation
+(
+    d DateTime,
+    k1 Int,
+    k2 Int,
+    x Int,
+    y Int
+)
+ENGINE = MergeTree
+ORDER BY (k1, k2)
+TTL d + INTERVAL 1 MONTH GROUP BY k1, k2 SET x = max(x), y = min(y);
+```
+
