@@ -4,16 +4,18 @@
 
 ### 1.1、初始化新的仓库
 
-```
+```shell
 ① 首先创建一个空的文件夹
 mkdir gitrepo
 ② 执行git初始化命令（执行命令之后会在文件夹中生成一个.git的目录）
 git init
+③ 查看git状态
+git status
 ```
 
 ### 1.2、克隆一个远程仓库
 
-```
+```shell
 执行git克隆命令，会在当前操作路径下生成一个与远程仓库同名的文件夹，这个文件夹就作为本地仓库（与1.1中创建的文件夹同理）
 git clone git@github.com:michaelliao/gitskills.git
 ```
@@ -22,7 +24,7 @@ git clone git@github.com:michaelliao/gitskills.git
 
 ### 2.1、将文件添加到本地仓库
 
-```
+```shell
 ① 首先创建需要提交到仓库的编辑文件（以a.txt为例）
 touch a.txt
 ② 将文件从工作区添加至暂存区（可多次添加或一次多添加）
@@ -33,7 +35,7 @@ git commit -m "为本次提交内容添加注释"
 
 ### 2.2、将本地仓库提交至远程仓库
 
-```
+```shell
 ① 将本地仓库与远程仓库绑定
 git remote add origin git@github.com:michaelliao/learngit.git
 解释：origin是给远程仓库自定义的名字（自己想怎么起就怎么起，不过见名知义最好），git@github.com:michaelliao/learngit.git为远程仓库的ssh地址
@@ -50,7 +52,7 @@ git push origin master
 
 ### 3.1、创建分支
 
-```
+```shell
 ① 创建一个dev分支
 git branch dev
 ② 创建并切换到dev分支
@@ -62,14 +64,14 @@ git branch -m dev dev1
 
 ### 3.2、切换分支
 
-```
+```shell
 方式一：git checkout dev
 方式二：git switch dev
 ```
 
 ### 3.3、查看分支
 
-```
+```shell
 ① 查看本地分支
 git branch
 ② 查看远程分支
@@ -84,7 +86,7 @@ git branch --no-merged
 
 ### 3.4、合并分支
 
-```
+```shell
 ① 切换至主分支（假设有两条分支，master和dev，现在想把dev分支的内容合并至master分支，那么master就作合并的主分支）
 git switch master
 ② 合并dev分支
@@ -93,7 +95,7 @@ git merge dev
 
 ### 3.5、删除分支
 
-```
+```shell
 ① 删除本地已合并分支
 git branch -d dev
 ② 强制删除本地未合并分支
@@ -124,7 +126,7 @@ my name is mary
 
 ### 4.2、提交至远程仓库产生冲突
 
-```
+```shell
 ① 首先拉去远程最新版本
 	git pull是git fetch（拉取远程仓库内容）和git merge（合并）的组合（拉取并合并）
 	语法：git pull <远程仓库别名> <远程分支名:本地分支名>
@@ -135,8 +137,41 @@ git pull（将远程所有分支内容与本地仓库进行对比）
 
 ### 4.3、如果远程仓库与本地仓库的分支信息不一致（他有我无或他无我有）
 
-```
+```shell
 需要将本地分支与远程分支进行链接
 git branch --set-upstream-to=origin/dev dev
+```
+
+### 4.4、对比版本
+
+```shell
+① 对比工作区与暂存区的差异
+git diff <filename>
+② 对比工作区与本地版本库的差异
+git diff HEAD <filename>
+③ 对比暂存区与本地版本库的差异
+git diff --cached <filename>
+```
+
+### 4.5、版本回退
+
+```shell
+① 查看我们操作过的命令
+git log
+显示简要的操作信息
+git log --pretty=oneline
+② 撤销工作区的修改
+git checkout -- <filename>
+解释：如果文件自修改后还没被放到暂存区（修改后还没有git add），现在撤销修改，回到和版本库一致（上次git commit的状态）;如果文件已经添加到了暂存区（git add），之后又对工作区的文件进行了修改，现在撤销修改，回到和暂存区一致。总之就是这个文件的内容会回到最近一次git add或git commit的状态。
+③ 撤销暂存区的修改（使暂存区回到本地版本库最新一次的状态）
+git reset HEAD <filename>
+④ 回退本地版本库版本（撤销本地仓库的修改）
+首先使用<git log --pretty=oneline>查看历史信息，每次提交的记录前都会有版本号
+git reset --mixed 版本号
+解释：撤销提交和暂存区的更改，保留工作区修改（版本库和暂存区回退至上个版本）
+git reset --soft 版本号
+解释：撤销提交，保留暂存区和工作区的修改（版本库回退至上个版本）
+git reset --hard 版本号
+解释：撤销提交和暂存区的更改，并且删除工作区修改（版本库、暂存区和工作区都回退至上个版本）
 ```
 
