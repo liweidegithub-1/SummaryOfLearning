@@ -1747,3 +1747,872 @@ SELECT to_json(array((map('a', 1))));
 +-------------------------+
 ```
 
+### 1.6、字符串函数
+
+```sql
+（1）btrim(str)/trim(str)：删除'str'中开头和结尾的空字符串
+eg:
+SELECT btrim('    SparkSQL   ');
++----------------------+
+|btrim(    SparkSQL   )|
++----------------------+
+|              SparkSQL|
++----------------------+
+
+SELECT btrim(encode('    SparkSQL   ', 'utf-8'));
++-------------------------------------+
+|btrim(encode(    SparkSQL   , utf-8))|
++-------------------------------------+
+|                             SparkSQL|
++-------------------------------------+
+
+（2）btrim(str,trimStr)：删除'str'中开头和结尾的'trimStr'字符
+eg:
+SELECT btrim('SSparkSQLS', 'SL');
++---------------------+
+|btrim(SSparkSQLS, SL)|
++---------------------+
+|               parkSQ|
++---------------------+
+
+SELECT btrim(encode('SSparkSQLS', 'utf-8'), encode('SL', 'utf-8'));
++---------------------------------------------------+
+|btrim(encode(SSparkSQLS, utf-8), encode(SL, utf-8))|
++---------------------------------------------------+
+|                                             parkSQ|
++---------------------------------------------------+
+
+（3）concat_ws(sep[,str|array(str)]+)：返回由'sep'分隔的字符串的串联，跳过空值
+eg:
+SELECT concat_ws(' ', 'Spark', 'SQL');
++------------------------+
+|concat_ws( , Spark, SQL)|
++------------------------+
+|               Spark SQL|
++------------------------+
+
+SELECT concat_ws('s');
++------------+
+|concat_ws(s)|
++------------+
+|            |
++------------+
+
+SELECT concat_ws('/', 'foo', null, 'bar');
++----------------------------+
+|concat_ws(/, foo, NULL, bar)|
++----------------------------+
+|                     foo/bar|
++----------------------------+
+
+SELECT concat_ws(null, 'Spark', 'SQL');
++---------------------------+
+|concat_ws(NULL, Spark, SQL)|
++---------------------------+
+|                       NULL|
++---------------------------+
+
+（4）contains(left,right)：返回一个布尔值。如果在left中找到right，则返回true；如果任意输入表达式为NULL，则返回NULL；否则，返回false。left和right都必须是String或binary类型。（区分大小写）
+eg:
+SELECT contains('Spark SQL', 'Spark');
++--------------------------+
+|contains(Spark SQL, Spark)|
++--------------------------+
+|                      true|
++--------------------------+
+
+SELECT contains('Spark SQL', 'SPARK');
++--------------------------+
+|contains(Spark SQL, SPARK)|
++--------------------------+
+|                     false|
++--------------------------+
+
+SELECT contains('Spark SQL', null);
++-------------------------+
+|contains(Spark SQL, NULL)|
++-------------------------+
+|                     NULL|
++-------------------------+
+
+SELECT contains(x'537061726b2053514c', x'537061726b');
++----------------------------------------------+
+|contains(X'537061726B2053514C', X'537061726B')|
++----------------------------------------------+
+|                                          true|
++----------------------------------------------+
+
+（5）decode(expr,search,result[,search,result]...[,default])：按顺序将expr与每个search进行比较，如果expr等于某个search，则decode返回相应的result。如果没有则返回default。如果省略default，则返回null。
+eg：
+SELECT decode(2, 1, 'Southlake', 2, 'San Francisco', 3, 'New Jersey', 4, 'Seattle', 'Non domestic');
++----------------------------------------------------------------------------------+
+|decode(2, 1, Southlake, 2, San Francisco, 3, New Jersey, 4, Seattle, Non domestic)|
++----------------------------------------------------------------------------------+
+|                                                                     San Francisco|
++----------------------------------------------------------------------------------+
+
+SELECT decode(6, 1, 'Southlake', 2, 'San Francisco', 3, 'New Jersey', 4, 'Seattle', 'Non domestic');
++----------------------------------------------------------------------------------+
+|decode(6, 1, Southlake, 2, San Francisco, 3, New Jersey, 4, Seattle, Non domestic)|
++----------------------------------------------------------------------------------+
+|                                                                      Non domestic|
++----------------------------------------------------------------------------------+
+
+SELECT decode(6, 1, 'Southlake', 2, 'San Francisco', 3, 'New Jersey', 4, 'Seattle');
++--------------------------------------------------------------------+
+|decode(6, 1, Southlake, 2, San Francisco, 3, New Jersey, 4, Seattle)|
++--------------------------------------------------------------------+
+|                                                                NULL|
++--------------------------------------------------------------------+
+
+SELECT decode(null, 6, 'Spark', NULL, 'SQL', 4, 'rocks');
++-------------------------------------------+
+|decode(NULL, 6, Spark, NULL, SQL, 4, rocks)|
++-------------------------------------------+
+|                                        SQL|
++-------------------------------------------+
+
+（6）elt(n,input1,input2,...)：返回第n个输入，当n为2时返回input2。如果索引超过数组的长度并且'spark.sql.ansi.enabled'设置为false，则该函数返回NULL。如果'spark.sql.ansi.enabled'设置为true，则对于无效索引，它会抛出异常。
+eg:
+SELECT elt(1, 'scala', 'java');
++-------------------+
+|elt(1, scala, java)|
++-------------------+
+|              scala|
++-------------------+
+
+SELECT elt(2, 'a', 1);
++------------+
+|elt(2, a, 1)|
++------------+
+|           1|
++------------+
+
+（7）endswith(left,right)：返回一个布尔值，如果left以right结尾，则值为true；如果任一输入表达式为NULL，则返回NULL；否则返回false。left和right都必须为String或binary类型。startswith(left,right)同理
+eg:
+SELECT endswith('Spark SQL', 'SQL');
++------------------------+
+|endswith(Spark SQL, SQL)|
++------------------------+
+|                    true|
++------------------------+
+
+SELECT endswith('Spark SQL', 'Spark');
++--------------------------+
+|endswith(Spark SQL, Spark)|
++--------------------------+
+|                     false|
++--------------------------+
+
+SELECT endswith('Spark SQL', null);
++-------------------------+
+|endswith(Spark SQL, NULL)|
++-------------------------+
+|                     NULL|
++-------------------------+
+
+SELECT endswith(x'537061726b2053514c', x'537061726b');
++----------------------------------------------+
+|endswith(X'537061726B2053514C', X'537061726B')|
++----------------------------------------------+
+|                                         false|
++----------------------------------------------+
+
+SELECT endswith(x'537061726b2053514c', x'53514c');
++------------------------------------------+
+|endswith(X'537061726B2053514C', X'53514C')|
++------------------------------------------+
+|                                      true|
++------------------------------------------+
+
+（8）find_in_set(str,str_array)：返回逗号分隔符列表str_array中给定的字符串str的索引（索引从1开始）。如果未找到则返回0
+eg:
+SELECT find_in_set('ab','abc,b,ab,c,def');
++-------------------------------+
+|find_in_set(ab, abc,b,ab,c,def)|
++-------------------------------+
+|                              3|
++-------------------------------+
+
+（9）format_number(expr1,expr2)：将数字expr1格式化为'#,###,###.##'，四舍五入到expr2位小数。如果expr2为0，则结果没有小数部分。
+eg:
+SELECT format_number(12332.123456, 4);
++------------------------------+
+|format_number(12332.123456, 4)|
++------------------------------+
+|                   12,332.1235|
++------------------------------+
+
+SELECT format_number(12332.123456, '##################.###');
++---------------------------------------------------+
+|format_number(12332.123456, ##################.###)|
++---------------------------------------------------+
+|                                          12332.123|
++---------------------------------------------------+
+
+（10）format_string(strfmt,obj,...)/printf(strfmt,obj,...)：从printf风格的格式字符串返回格式化的字符串。
+eg:
+SELECT format_string("Hello World %d %s", 100, "days");
++-------------------------------------------+
+|format_string(Hello World %d %s, 100, days)|
++-------------------------------------------+
+|                       Hello World 100 days|
++-------------------------------------------+
+
+（11）initcap(str)：str的每个单词首字母大写，空格分隔。
+eg:
+SELECT initcap('sPark sql');
++------------------+
+|initcap(sPark sql)|
++------------------+
+|         Spark Sql|
++------------------+
+
+（12）instr(str,substr)：返回substr在str中第一次出现的索引（索引从1开始）
+eg:
+SELECT instr('SparkSQL', 'SQL');
++--------------------+
+|instr(SparkSQL, SQL)|
++--------------------+
+|                   6|
++--------------------+
+
+（13）lcase(str)/lower(str)：str转小写
+eg:
+SELECT lcase('SparkSql');
++---------------+
+|lcase(SparkSql)|
++---------------+
+|       sparksql|
++---------------+
+
+（14）left(str,len)：返回字符串str中最左边的len个字符，如果len小于或等于0，则结果为空字符串。
+eg:
+SELECT left('Spark SQL', 3);
++------------------+
+|left(Spark SQL, 3)|
++------------------+
+|               Spa|
++------------------+
+
+SELECT left(encode('Spark SQL', 'utf-8'), 3);
++---------------------------------+
+|left(encode(Spark SQL, utf-8), 3)|
++---------------------------------+
+|                       [53 70 61]|
++---------------------------------+
+
+（15）len(expr)/length(expr)：返回字符串expr的字符长度或二进制数据的字节数。
+eg:
+SELECT len('Spark SQL ');
++---------------+
+|len(Spark SQL )|
++---------------+
+|             10|
++---------------+
+
+SELECT len(x'537061726b2053514c');
++--------------------------+
+|len(X'537061726B2053514C')|
++--------------------------+
+|                         9|
++--------------------------+
+
+（16）locate(substr,str[,pos])：返回substr在str中位置pos之后第一次出现的位置。（索引从1开始）。
+eg:
+SELECT locate('bar', 'foobarbar');
++-------------------------+
+|locate(bar, foobarbar, 1)|
++-------------------------+
+|                        4|
++-------------------------+
+
+SELECT locate('bar', 'foobarbar', 5);
++-------------------------+
+|locate(bar, foobarbar, 5)|
++-------------------------+
+|                        7|
++-------------------------+
+
+（17）lpad(str,len[,pad])：使用pad填充str的左侧，使str的长度达到len。如果未指定pad，并且str是字符串，则使用空格填充，如果str是字节序列，则使用0填充。rpad同理
+eg:
+SELECT lpad('hi', 5, '??');
++---------------+
+|lpad(hi, 5, ??)|
++---------------+
+|          ???hi|
++---------------+
+
+SELECT lpad('hi', 1, '??');
++---------------+
+|lpad(hi, 1, ??)|
++---------------+
+|              h|
++---------------+
+
+SELECT lpad('hi', 5);
++--------------+
+|lpad(hi, 5,  )|
++--------------+
+|            hi|
++--------------+
+
+（18）ltrim(str)：删除str左侧空格字符，rtrim同理
+eg:
+SELECT ltrim('    SparkSQL   ');
++----------------------+
+|ltrim(    SparkSQL   )|
++----------------------+
+|           SparkSQL   |
++----------------------+
+
+（19）mask(input[,upperChar,lowerChar,digitChar,otherChar])：屏蔽给定的字符串值。该函数将字符串替换为'X'或'x'，将数字替换为'n'。
+eg:
+SELECT mask('abcd-EFGH-8765-4321');
++----------------------------------------+
+|mask(abcd-EFGH-8765-4321, X, x, n, NULL)|
++----------------------------------------+
+|                     xxxx-XXXX-nnnn-nnnn|
++----------------------------------------+
+
+SELECT mask('abcd-EFGH-8765-4321', 'Q');
++----------------------------------------+
+|mask(abcd-EFGH-8765-4321, Q, x, n, NULL)|
++----------------------------------------+
+|                     xxxx-QQQQ-nnnn-nnnn|
++----------------------------------------+
+
+SELECT mask('AbCD123-@$#', 'Q', 'q');
++--------------------------------+
+|mask(AbCD123-@$#, Q, q, n, NULL)|
++--------------------------------+
+|                     QqQQnnn-@$#|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#');
++--------------------------------+
+|mask(AbCD123-@$#, X, x, n, NULL)|
++--------------------------------+
+|                     XxXXnnn-@$#|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#', 'Q');
++--------------------------------+
+|mask(AbCD123-@$#, Q, x, n, NULL)|
++--------------------------------+
+|                     QxQQnnn-@$#|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#', 'Q', 'q');
++--------------------------------+
+|mask(AbCD123-@$#, Q, q, n, NULL)|
++--------------------------------+
+|                     QqQQnnn-@$#|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#', 'Q', 'q', 'd');
++--------------------------------+
+|mask(AbCD123-@$#, Q, q, d, NULL)|
++--------------------------------+
+|                     QqQQddd-@$#|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#', 'Q', 'q', 'd', 'o');
++-----------------------------+
+|mask(AbCD123-@$#, Q, q, d, o)|
++-----------------------------+
+|                  QqQQdddoooo|
++-----------------------------+
+
+SELECT mask('AbCD123-@$#', NULL, 'q', 'd', 'o');
++--------------------------------+
+|mask(AbCD123-@$#, NULL, q, d, o)|
++--------------------------------+
+|                     AqCDdddoooo|
++--------------------------------+
+
+SELECT mask('AbCD123-@$#', NULL, NULL, 'd', 'o');
++-----------------------------------+
+|mask(AbCD123-@$#, NULL, NULL, d, o)|
++-----------------------------------+
+|                        AbCDdddoooo|
++-----------------------------------+
+
+SELECT mask('AbCD123-@$#', NULL, NULL, NULL, 'o');
++--------------------------------------+
+|mask(AbCD123-@$#, NULL, NULL, NULL, o)|
++--------------------------------------+
+|                           AbCD123oooo|
++--------------------------------------+
+
+SELECT mask(NULL, NULL, NULL, NULL, 'o');
++-------------------------------+
+|mask(NULL, NULL, NULL, NULL, o)|
++-------------------------------+
+|                           NULL|
++-------------------------------+
+
+SELECT mask(NULL);
++-------------------------+
+|mask(NULL, X, x, n, NULL)|
++-------------------------+
+|                     NULL|
++-------------------------+
+
+SELECT mask('AbCD123-@$#', NULL, NULL, NULL, NULL);
++-----------------------------------------+
+|mask(AbCD123-@$#, NULL, NULL, NULL, NULL)|
++-----------------------------------------+
+|                              AbCD123-@$#|
++-----------------------------------------+
+
+（20）overlay(input,replace,pos[,len])：将input中从pos开始且长度为len的部分替换为replace。
+eg:
+SELECT overlay('Spark SQL' PLACING '_' FROM 6);
++----------------------------+
+|overlay(Spark SQL, _, 6, -1)|
++----------------------------+
+|                   Spark_SQL|
++----------------------------+
+
+SELECT overlay('Spark SQL' PLACING 'CORE' FROM 7);
++-------------------------------+
+|overlay(Spark SQL, CORE, 7, -1)|
++-------------------------------+
+|                     Spark CORE|
++-------------------------------+
+
+SELECT overlay('Spark SQL' PLACING 'ANSI ' FROM 7 FOR 0);
++-------------------------------+
+|overlay(Spark SQL, ANSI , 7, 0)|
++-------------------------------+
+|                 Spark ANSI SQL|
++-------------------------------+
+
+SELECT overlay('Spark SQL' PLACING 'tructured' FROM 2 FOR 4);
++-----------------------------------+
+|overlay(Spark SQL, tructured, 2, 4)|
++-----------------------------------+
+|                     Structured SQL|
++-----------------------------------+
+
+SELECT overlay(encode('Spark SQL', 'utf-8') PLACING encode('_', 'utf-8') FROM 6);
++----------------------------------------------------------+
+|overlay(encode(Spark SQL, utf-8), encode(_, utf-8), 6, -1)|
++----------------------------------------------------------+
+|                                      [53 70 61 72 6B 5...|
++----------------------------------------------------------+
+
+SELECT overlay(encode('Spark SQL', 'utf-8') PLACING encode('CORE', 'utf-8') FROM 7);
++-------------------------------------------------------------+
+|overlay(encode(Spark SQL, utf-8), encode(CORE, utf-8), 7, -1)|
++-------------------------------------------------------------+
+|                                         [53 70 61 72 6B 2...|
++-------------------------------------------------------------+
+
+SELECT overlay(encode('Spark SQL', 'utf-8') PLACING encode('ANSI ', 'utf-8') FROM 7 FOR 0);
++-------------------------------------------------------------+
+|overlay(encode(Spark SQL, utf-8), encode(ANSI , utf-8), 7, 0)|
++-------------------------------------------------------------+
+|                                         [53 70 61 72 6B 2...|
++-------------------------------------------------------------+
+
+SELECT overlay(encode('Spark SQL', 'utf-8') PLACING encode('tructured', 'utf-8') FROM 2 FOR 4);
++-----------------------------------------------------------------+
+|overlay(encode(Spark SQL, utf-8), encode(tructured, utf-8), 2, 4)|
++-----------------------------------------------------------------+
+|                                             [53 74 72 75 63 7...|
++-----------------------------------------------------------------+
+
+（21）position(substr,str[,pos])：返回substr在str中位置pos之后第一次出现的位置（索引从1开始）。
+eg:
+SELECT position('bar', 'foobarbar');
++---------------------------+
+|position(bar, foobarbar, 1)|
++---------------------------+
+|                          4|
++---------------------------+
+
+SELECT position('bar', 'foobarbar', 5);
++---------------------------+
+|position(bar, foobarbar, 5)|
++---------------------------+
+|                          7|
++---------------------------+
+
+SELECT POSITION('bar' IN 'foobarbar');
++-------------------------+
+|locate(bar, foobarbar, 1)|
++-------------------------+
+|                        4|
++-------------------------+
+
+（22）regexp_count(str,regexp)：返回正则表达式regexp在字符串str中匹配的次数。
+eg:
+SELECT regexp_count('Steven Jones and Stephen Smith are the best players', 'Ste(v|ph)en');
++------------------------------------------------------------------------------+
+|regexp_count(Steven Jones and Stephen Smith are the best players, Ste(v|ph)en)|
++------------------------------------------------------------------------------+
+|                                                                             2|
++------------------------------------------------------------------------------+
+
+SELECT regexp_count('abcdefghijklmnopqrstuvwxyz', '[a-z]{3}');
++--------------------------------------------------+
+|regexp_count(abcdefghijklmnopqrstuvwxyz, [a-z]{3})|
++--------------------------------------------------+
+|                                                 8|
++--------------------------------------------------+
+
+（23）regexp_extract(str,regexp[,idx])：提取str中与regexp匹配的第一个字符串，并对应于正则表达式组索引。
+eg:
+SELECT regexp_extract('100-200', '(\\d+)-(\\d+)', 1);
++---------------------------------------+
+|regexp_extract(100-200, (\d+)-(\d+), 1)|
++---------------------------------------+
+|                                    100|
++---------------------------------------+
+
+（24）regexp_extract_all(str,regexp[,idx])：提取str中与regexp匹配的所有字符串，并对应于正则表达式组索引。
+eg:
+SELECT regexp_extract_all('100-200, 300-400', '(\\d+)-(\\d+)', 1);
++----------------------------------------------------+
+|regexp_extract_all(100-200, 300-400, (\d+)-(\d+), 1)|
++----------------------------------------------------+
+|                                          [100, 300]|
++----------------------------------------------------+
+
+（25）regexp_instr(str,regexp)：在字符串中搜索正则表达式，并返回一个整数，该整数指示匹配字符串的开始位置（索引从1开始），没有匹配到则返回0。
+eg:
+SELECT regexp_instr('user@spark.apache.org', '@[^.]*');
++----------------------------------------------+
+|regexp_instr(user@spark.apache.org, @[^.]*, 0)|
++----------------------------------------------+
+|                                             5|
++----------------------------------------------+
+
+（26）regexp_replace(str,regexp,rep[,position])：将str中与regexp匹配的所有字符串替换为rep。
+eg:
+SELECT regexp_replace('100-200', '(\\d+)', 'num');
++--------------------------------------+
+|regexp_replace(100-200, (\d+), num, 1)|
++--------------------------------------+
+|                               num-num|
++--------------------------------------+
+                                               
+（27）regexp_substr(str,regexp)：返回str中正则表达式regexp匹配到的子字符串。如果没有找到则返回null。
+eg:
+SELECT regexp_substr('Steven Jones and Stephen Smith are the best players', 'Ste(v|ph)en');
++-------------------------------------------------------------------------------+
+|regexp_substr(Steven Jones and Stephen Smith are the best players, Ste(v|ph)en)|
++-------------------------------------------------------------------------------+
+|                                                                         Steven|
++-------------------------------------------------------------------------------+
+
+SELECT regexp_substr('Steven Jones and Stephen Smith are the best players', 'Jeck');
++------------------------------------------------------------------------+
+|regexp_substr(Steven Jones and Stephen Smith are the best players, Jeck)|
++------------------------------------------------------------------------+
+|                                                                    NULL|
++------------------------------------------------------------------------+
+                                               
+（28）repeat(str,n)：返回str重复n次的结果。
+eg:
+SELECT repeat('123', 2);
++--------------+
+|repeat(123, 2)|
++--------------+
+|        123123|
++--------------+
+                                               
+（29）replace(str,search[,replace])：将所有出现的search替换为replace。
+eg:
+SELECT replace('ABCabc', 'abc', 'DEF');
++-------------------------+
+|replace(ABCabc, abc, DEF)|
++-------------------------+
+|                   ABCDEF|
++-------------------------+
+                                               
+（30）right(str,len)：返回str最右边的len个字符，如果len小于等于0则返回空字符串。
+eg:
+SELECT right('Spark SQL', 3);
++-------------------+
+|right(Spark SQL, 3)|
++-------------------+
+|                SQL|
++-------------------+
+                                               
+（31）split(str,regex[,limit])：使用regexp分割符将str分割为数组，并返回长度最多为limit的数组。
+eg:
+SELECT split('oneAtwoBthreeC', '[ABC]');
++--------------------------------+
+|split(oneAtwoBthreeC, [ABC], -1)|
++--------------------------------+
+|             [one, two, three, ]|
++--------------------------------+
+
+SELECT split('oneAtwoBthreeC', '[ABC]', -1);
++--------------------------------+
+|split(oneAtwoBthreeC, [ABC], -1)|
++--------------------------------+
+|             [one, two, three, ]|
++--------------------------------+
+
+SELECT split('oneAtwoBthreeC', '[ABC]', 2);
++-------------------------------+
+|split(oneAtwoBthreeC, [ABC], 2)|
++-------------------------------+
+|              [one, twoBthreeC]|
++-------------------------------+
+                                               
+（32）split_part(str,delimiter,partNum)：按分隔符拆分str并返回拆分后的请求部分（从1开始）。如果任何输入为null，则返回null。如果partNum超出拆分范围，则返回空字符串；如果partNum为0，则抛出错误；如果partNum为负数，则从字符串末尾开始倒数。如果delimiter是空字符串，则不拆分str。
+eg：
+SELECT split_part('11.12.13', '.', 3);
++--------------------------+
+|split_part(11.12.13, ., 3)|
++--------------------------+
+|                        13|
++--------------------------+
+                                               
+（33）substr(str,pos[,len])/substring(str,pos[,len])：返回str从pos开始且长度为len的子字符串。
+eg:
+SELECT substr('Spark SQL', 5);
++--------------------------------+
+|substr(Spark SQL, 5, 2147483647)|
++--------------------------------+
+|                           k SQL|
++--------------------------------+
+
+SELECT substr('Spark SQL', -3);
++---------------------------------+
+|substr(Spark SQL, -3, 2147483647)|
++---------------------------------+
+|                              SQL|
++---------------------------------+
+
+SELECT substr('Spark SQL', 5, 1);
++-----------------------+
+|substr(Spark SQL, 5, 1)|
++-----------------------+
+|                      k|
++-----------------------+
+
+SELECT substr('Spark SQL' FROM 5);
++-----------------------------------+
+|substring(Spark SQL, 5, 2147483647)|
++-----------------------------------+
+|                              k SQL|
++-----------------------------------+
+
+SELECT substr('Spark SQL' FROM -3);
++------------------------------------+
+|substring(Spark SQL, -3, 2147483647)|
++------------------------------------+
+|                                 SQL|
++------------------------------------+
+
+SELECT substr('Spark SQL' FROM 5 FOR 1);
++--------------------------+
+|substring(Spark SQL, 5, 1)|
++--------------------------+
+|                         k|
++--------------------------+
+
+SELECT substr(encode('Spark SQL', 'utf-8'), 5);
++-----------------------------------------------+
+|substr(encode(Spark SQL, utf-8), 5, 2147483647)|
++-----------------------------------------------+
+|                               [6B 20 53 51 4C]|
++-----------------------------------------------+
+                                               
+（34）substring_index(str,delim,count)：使用delim分隔符分割str，如果count为正数，则返回从左侧开始的前count个字符，如果count为负数，则返回从右侧开始的前count个字符。
+eg:
+SELECT substring_index('www.apache.org', '.', 2);
++-------------------------------------+
+|substring_index(www.apache.org, ., 2)|
++-------------------------------------+
+|                           www.apache|
++-------------------------------------+
+                                               
+（35）to_char(numberExpr,formatExpr)/to_varchar(numberExpr,formatExpr)：根据formatExpr将numberExpr转换为字符串。
+eg:
+SELECT to_char(454, '999');
++-----------------+
+|to_char(454, 999)|
++-----------------+
+|              454|
++-----------------+
+
+SELECT to_char(454.00, '000D00');
++-----------------------+
+|to_char(454.00, 000D00)|
++-----------------------+
+|                 454.00|
++-----------------------+
+
+SELECT to_char(12454, '99G999');
++----------------------+
+|to_char(12454, 99G999)|
++----------------------+
+|                12,454|
++----------------------+
+
+SELECT to_char(78.12, '$99.99');
++----------------------+
+|to_char(78.12, $99.99)|
++----------------------+
+|                $78.12|
++----------------------+
+
+SELECT to_char(-12454.8, '99G999D9S');
++----------------------------+
+|to_char(-12454.8, 99G999D9S)|
++----------------------------+
+|                   12,454.8-|
++----------------------------+
+                                               
+（36）to_number(expr,fmt)：根据fmt将expr转换为数字。
+eg:
+SELECT to_number('454', '999');
++-------------------+
+|to_number(454, 999)|
++-------------------+
+|                454|
++-------------------+
+
+SELECT to_number('454.00', '000.00');
++-------------------------+
+|to_number(454.00, 000.00)|
++-------------------------+
+|                   454.00|
++-------------------------+
+
+SELECT to_number('12,454', '99,999');
++-------------------------+
+|to_number(12,454, 99,999)|
++-------------------------+
+|                    12454|
++-------------------------+
+
+SELECT to_number('$78.12', '$99.99');
++-------------------------+
+|to_number($78.12, $99.99)|
++-------------------------+
+|                    78.12|
++-------------------------+
+
+SELECT to_number('12,454.8-', '99,999.9S');
++-------------------------------+
+|to_number(12,454.8-, 99,999.9S)|
++-------------------------------+
+|                       -12454.8|
++-------------------------------+
+
+                                               
+（37）translate(input,from,to)：将input中的from替换为to。
+eg:
+SELECT translate('AaBbCc', 'abc', '123');
++---------------------------+
+|translate(AaBbCc, abc, 123)|
++---------------------------+
+|                     A1B2C3|
++---------------------------+
+                                               
+（38）ucase(str)/upper(str)：将str全部转为大写。
+eg：
+SELECT ucase('SparkSql');
++---------------+
+|ucase(SparkSql)|
++---------------+
+|       SPARKSQL|
++---------------+
+```
+
+
+
+## 二、sparksql语法
+
+### 2.1、DDL
+
+```sql
+创建数据库
+CREATE { DATABASE | SCHEMA } [ IF NOT EXISTS ] database_name
+    [ COMMENT database_comment ]
+    [ LOCATION database_directory ]
+    [ WITH DBPROPERTIES ( property_name = property_value [ , ... ] ) ]
+    
+eg：
+CREATE DATABASE IF NOT EXISTS db_name
+COMMENT 'This is my first db'
+LOCATION '/spark_db'
+WITH DBPROPERTIES(create_time='2024-10-28');
+```
+
+```sql
+创建表
+① 创建数据源表
+CREATE TABLE [ IF NOT EXISTS ] table_identifier
+    [ ( col_name1 col_type1 [ COMMENT col_comment1 ], ... ) ]
+    USING data_source
+    [ OPTIONS ( key1=val1, key2=val2, ... ) ]
+    [ PARTITIONED BY ( col_name1, col_name2, ... ) ]
+    [ CLUSTERED BY ( col_name3, col_name4, ... ) 
+        [ SORTED BY ( col_name [ ASC | DESC ], ... ) ] 
+        INTO num_buckets BUCKETS ]
+    [ LOCATION path ]
+    [ COMMENT table_comment ]
+    [ TBLPROPERTIES ( key1=val1, key2=val2, ... ) ]
+    [ AS select_statement ]
+  
+eg:
+CREATE TABLE IF NOT EXISTS tbl_name(
+	id INT,
+    name STRING,
+    class STRING
+)
+USING org.apache.spark.sql.jdbc
+OPTIONS(
+	url="jdbc:mysql://localhost:3306/test",
+    dbtable="test.student",
+    driver="com.mysql.cj.jdbc.Driver",
+    user="root",
+    password="123456"
+)
+PARTITIONED BY (class)
+CLUSTERED BY (id)
+SORTED BY (id)
+INTO 6 BUCKETS
+LOCATION "/spark_db/"
+COMMENT "my first jdbc table"
+TBLPROPERTIES (create_time="2024-10-28");
+
+② 创建hive格式表
+CREATE [ EXTERNAL ] TABLE [ IF NOT EXISTS ] table_identifier
+    [ ( col_name1[:] col_type1 [ COMMENT col_comment1 ], ... ) ]
+    [ COMMENT table_comment ]
+    [ PARTITIONED BY ( col_name2[:] col_type2 [ COMMENT col_comment2 ], ... ) 
+        | ( col_name1, col_name2, ... ) ]
+    [ CLUSTERED BY ( col_name1, col_name2, ...) 
+        [ SORTED BY ( col_name1 [ ASC | DESC ], col_name2 [ ASC | DESC ], ... ) ] 
+        INTO num_buckets BUCKETS ]
+    [ ROW FORMAT row_format ]
+    [ STORED AS file_format ]
+    [ LOCATION path ]
+    [ TBLPROPERTIES ( key1=val1, key2=val2, ... ) ]
+    [ AS select_statement ]
+
+row_format:    
+    : SERDE serde_class [ WITH SERDEPROPERTIES (k1=v1, k2=v2, ... ) ]
+    | DELIMITED [ FIELDS TERMINATED BY fields_terminated_char [ ESCAPED BY escaped_char ] ] 
+        [ COLLECTION ITEMS TERMINATED BY collection_items_terminated_char ] 
+        [ MAP KEYS TERMINATED BY map_key_terminated_char ]
+        [ LINES TERMINATED BY row_terminated_char ]
+        [ NULL DEFINED AS null_char ]
+
+eg:
+CREATE EXTERNAL TABLE 
+
+
+
+```
+

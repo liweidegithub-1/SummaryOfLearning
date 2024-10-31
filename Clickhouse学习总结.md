@@ -90,6 +90,7 @@ SELECT CAST((['a','b','c'], [1,2,3]),'Map(String, Int8)') AS x, toTypeName(x);
 
 ```mysql
 MergeTree系列的引擎被设计用于插入极大量的数据到一张表当中，数据可以以数据片段的形式一个接着一个的快速写入，数据片段在后台按照一定的规则进行合并。相比在插入时不断修改已存储的数据，这种策略会高效很多。
+任何一个批次的数据写入都会产生一个临时分区，不会纳入到任何一个已有的分区，写入后的某个时刻（大概10到15分钟），clickhouse会自动执行合并操作，把临时分区的数据合并到已有分区中。
 主要特点：
 	存储的数据按照主键排序
 	如果指定了分区键可以使用分区，在相同数据集和相同结果集的情况下，clickhouse中某些带分区的操作会比普通操作更快。查询中指定了分区键时，clickhouse会自动截取分区数据，加快查询效率。
@@ -110,10 +111,19 @@ ORDER BY expr
 [SETTINGS name=value, ...];
 
 ENGINE：引擎名和参数
-ORDER BY（必选）：排序键，可以是一组列的元组或任意表达式，如果没有使用PRIMARY KEY显示指定主键，clickhouse会使用排序键作为主键，如果不需要排序，可以使用ORDER BY tuple()
+
+ORDER BY（必选）：排序键，可以是一组列的元组或任意表达式，如果没有使用PRIMARY KEY显示指定主键，clickhouse会使用排序键作为主键，如果不需要排序，可以使用ORDER BY tuple()。
+设定了分区内的数据按照哪些字段顺序进行有序保存
+主键必须是order by字段的前缀字段，如order by字段是(id,sku_id)，那么主键必须是id或(id,sku_id)
+
 PARTITION BY：分区键，大多数情况下，不需要使用分区键，即使需要使用，也不需要使用比月更细粒度的分区键。分区不会加快查询。不要使用客户端指定分区标识符或分区字段名称来对数据进行分区（而是将分区字段标识作为order by表达式的第一列来指定分区）。要按月分区，可以使用表达式toYYYYMM(date_column)，date_column是一个Date类型的列，分区名格式会是"YYYYMM"
-PRIMARY KEY:如果要选择与排序键不同的主键，可以在这里指定。默认情况下主键和排序键相同，因此大部分情况下不需要专门指定一个PRIMARY KEY子句
+
+PRIMARY KEY:如果要选择与排序键不同的主键，可以在这里指定。默认情况下主键和排序键相同，因此大部分情况下不需要专门指定一个PRIMARY KEY子句。
+他只提供数据的一级索引，但是却不是唯一约束。
+主键的设定主要依据是查询语句中的where条件。根据条件通过对主键进行某种二分查找，能够定位到对应的索引，避免全表扫描。
+
 TTL：指定行存储的持续时间并定义数据片段在硬盘和卷上的移动逻辑的规则列表。表达式中必须存在至少一个Date或Datetime类型的列。如：TTL date + INTERVAL 1 DAY。规则类型(DELETE|TO DISK 'XXX'|TO VOLUME 'XXX')指定了当满足条件（到达指定时间）时所要执行的动作：移除过期的行，还是将数据片段（如果数据片段中的所有行都满足表达式的话）移动到指定的磁盘(TO DISK 'XXX')或卷(TO VOLUME 'XXX')。默认的规则是移除（DELETE）。可以在列表中指定多个规则，但最多只能有一个DELETE的规则。
+
 列TTL：当列中的值过期时，clickhouse会将他们替换成该列数据类型的默认值，如果数据片段中列的所有值均已过期，则clickhouse会从文件系统中的数据片段中删除此列。TTL子句不用用于主键字段
 eg：
 CREATE TABLE example_table
@@ -126,6 +136,7 @@ CREATE TABLE example_table
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(d)
 ORDER BY d;
+
 表TTL：可以设置一个用于移除过期行的表达式，以及多个用于在磁盘或卷上自动移除数据片段的表达式。当表中的行过期时，clickhouse会删除所有对应的行。对于数据片段的转移特性，必须所有的行都满足转移条件。
 格式：
 TTL expr
@@ -170,5 +181,60 @@ CREATE TABLE table_for_aggregation
 ENGINE = MergeTree
 ORDER BY (k1, k2)
 TTL d + INTERVAL 1 MONTH GROUP BY k1, k2 SET x = max(x), y = min(y);
+```
+
+### 2.2、ReplacingMergeTree
+
+```mysql
+该引擎会删除排序键值相同的重复项。数据去重只会在合并期间进行，合并会在后台一个不确定的时间进行，因此在使用数据的时候可能数据仍未被处理。不能保证没有重复数据的出现。
+去重只会在分区内部进行去重，不能跨分区去重
+
+CREATE TABLE [IF NOT EXISTS] [db.]table_name [ON CLUSTER cluster]
+(
+    name1 [type1] [DEFAULT|MATERIALIZED|ALIAS expr1],
+    name2 [type2] [DEFAULT|MATERIALIZED|ALIAS expr2],
+    ...
+) ENGINE = ReplacingMergeTree([ver])
+[PARTITION BY expr]
+[ORDER BY expr]
+[SAMPLE BY expr]
+[SETTINGS name=value, ...]
+
+参数：
+ver：版本列，类型为UInt*,Date,DateTime，可选参数。在数据合并的时候，会从所有具有相同排序键的行中选择一行留下；
+如果ver列未指定，则保留最后一条数据
+如果ver列指定，则保留ver最大的版本。
+```
+
+### 2.3、SummingMergeTree
+
+```mysql
+在合并SummingMergeTree表的数据片段时，会把所有具有相同主键的行合并为一行，该行包含了被合并的行中具有数值数据类型的列的汇总值。
+
+CREATE TABLE [IF NOT EXISTS] [db.]table_name [ON CLUSTER cluster]
+(
+    name1 [type1] [DEFAULT|MATERIALIZED|ALIAS expr1],
+    name2 [type2] [DEFAULT|MATERIALIZED|ALIAS expr2],
+    ...
+) ENGINE = SummingMergeTree([columns])
+[PARTITION BY expr]
+[ORDER BY expr]
+[SAMPLE BY expr]
+[SETTINGS name=value, ...]
+
+参数：
+columns：包含了将要被汇总的列的列名的元组，可选参数。所选的列必须是数值类型，并且不可位于主键中。
+
+当数据被插入表中时，他们将被原样保存。clickhouse定期合并插入的数据片段，并在这个时候对所有具有相同主键的行中的列进行汇总，将这些行替换为包含汇总数据的一行记录。
+```
+
+### 2.4、TinyLog
+
+```
+用于将数据存储在磁盘上，每列都存储在单独的压缩文件中。写入时，数据将附加到文件末尾。
+并发数据访问不受限制：
+	如果同时从表中读取并在不同的查询中写入，则读取操作将抛出异常。
+	如果同时写入多个查询中的表，则数据将被破坏。
+这种表引擎的典型用法是write-once：首先只写入一次数据，然后根据需要多次读取。
 ```
 
