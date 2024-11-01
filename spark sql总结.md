@@ -497,57 +497,130 @@ SELECT sum(col) FROM VALUES (NULL), (NULL) AS tab(col);
 
 ### 1.2、窗口函数
 
-```
+```sql
 （1）cume_dist()：计算一个值相对于分区中所有值的位置
 eg:
+SELECT a, b, cume_dist() OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+--------------------------------------------------------------------------------------------------------------+
+|  a|  b|cume_dist() OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+--------------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                            0.6666666666666666|
+| A1|  1|                                                                                            0.6666666666666666|
+| A1|  2|                                                                                                           1.0|
+| A2|  3|                                                                                                           1.0|
++---+---+--------------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （2）dense_rank()：计算一组值中某个值的排名，有重复值，但不会产生间隔（1,1,2,3,3,4）
 eg:
-
+SELECT a, b, dense_rank(b) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+--------------------------------------------------------------------------------------------------------------+
+|  a|  b|DENSE_RANK() OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+--------------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                             1|
+| A1|  1|                                                                                                             1|
+| A1|  2|                                                                                                             2|
+| A2|  3|                                                                                                             1|
++---+---+--------------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （3）rank()：计算一组值中某个值的排名，有重复值，会产生间隔（1,1,3,4,4,6）
 eg:
-
+SELECT a, b, rank(b) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+--------------------------------------------------------------------------------------------------------+
+|  a|  b|RANK() OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+--------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                       1|
+| A1|  1|                                                                                                       1|
+| A1|  2|                                                                                                       3|
+| A2|  3|                                                                                                       1|
++---+---+--------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （4）row_number()：计算一组值中某个值的排名，无重复值，不产生间隔（1,2,3,4,5,6）
 eg:
-
+SELECT a, b, row_number() OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+--------------------------------------------------------------------------------------------------------------+
+|  a|  b|row_number() OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+--------------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                             1|
+| A1|  1|                                                                                                             2|
+| A1|  2|                                                                                                             3|
+| A2|  3|                                                                                                             1|
++---+---+--------------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （5）lag(input[, offset[, default]])：返回窗口中当前行向前偏移offset行的input值，当向前不足offset行时，填充default值
 eg:
-
+SELECT a, b, lag(b) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+-----------------------------------------------------------------------------------------------------------+
+|  a|  b|lag(b, 1, NULL) OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN -1 FOLLOWING AND -1 FOLLOWING)|
++---+---+-----------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                       NULL|
+| A1|  1|                                                                                                          1|
+| A1|  2|                                                                                                          1|
+| A2|  3|                                                                                                       NULL|
++---+---+-----------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （6）lead(input[, offset[, default]])：返回窗口中当前行向后偏移offset行的input值，当向后不足offset行时，填充default值
 eg:
-
+SELECT a, b, lead(b) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+----------------------------------------------------------------------------------------------------------+
+|  a|  b|lead(b, 1, NULL) OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING)|
++---+---+----------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                         1|
+| A1|  1|                                                                                                         2|
+| A1|  2|                                                                                                      NULL|
+| A2|  3|                                                                                                      NULL|
++---+---+----------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （7）nth_value(input[, offset])：返回窗口中offset行的input值
 eg:
-
+SELECT a, b, nth_value(b, 2) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+------------------------------------------------------------------------------------------------------------------+
+|  a|  b|nth_value(b, 2) OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+------------------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                                 1|
+| A1|  1|                                                                                                                 1|
+| A1|  2|                                                                                                                 1|
+| A2|  3|                                                                                                              NULL|
++---+---+------------------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （8）ntile(n)：将窗口中的数据按照顺序切分为n片，返回当前切片值
 eg:
-
+SELECT a, b, ntile(2) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+----------------------------------------------------------------------------------------------------------+
+|  a|  b|ntile(2) OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+----------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                         1|
+| A1|  1|                                                                                                         1|
+| A1|  2|                                                                                                         2|
+| A2|  3|                                                                                                         1|
++---+---+----------------------------------------------------------------------------------------------------------+
 ```
 
-```
+```sql
 （9）percent_rank()：计算窗口中当前值的百分比排名
 eg：
-
+SELECT a, b, percent_rank(b) OVER (PARTITION BY a ORDER BY b) FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);
++---+---+----------------------------------------------------------------------------------------------------------------+
+|  a|  b|PERCENT_RANK() OVER (PARTITION BY a ORDER BY b ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)|
++---+---+----------------------------------------------------------------------------------------------------------------+
+| A1|  1|                                                                                                             0.0|
+| A1|  1|                                                                                                             0.0|
+| A1|  2|                                                                                                             1.0|
+| A2|  3|                                                                                                             0.0|
++---+---+----------------------------------------------------------------------------------------------------------------+
 ```
 
 ### 1.3、数组函数
@@ -2528,6 +2601,148 @@ SELECT ucase('SparkSql');
 +---------------+
 ```
 
+### 1.7、条件函数
+
+```sql
+（1）coalesce(expr1,expr2,...)：从左往右，返回第一个不为空的表达式，否则返回null。
+eg:
+SELECT coalesce(NULL, 1, NULL);
++-----------------------+
+|coalesce(NULL, 1, NULL)|
++-----------------------+
+|                      1|
++-----------------------+
+```
+
+```sql
+（2）if(expr1,expr2,expr3)：如果expr1为true，则返回expr2，否则返回expr3。
+eg：
+SELECT if(1 < 2, 'a', 'b');
++-------------------+
+|(IF((1 < 2), a, b))|
++-------------------+
+|                  a|
++-------------------+
+```
+
+```sql
+（3）ifnull(expr1，expr2)/nvl(expr1,expr2)：如果expr1为null，则返回expr2，否则返回expr1。
+eg:
+SELECT ifnull(NULL, array('2'));
++----------------------+
+|ifnull(NULL, array(2))|
++----------------------+
+|                   [2]|
++----------------------+
+```
+
+```sql
+（4）nanvl(expr1,expr2)：如果expr1为NAN，则返回expr1，否则返回expr2。
+eg:
+SELECT nanvl(cast('NaN' as double), 123);
++-------------------------------+
+|nanvl(CAST(NaN AS DOUBLE), 123)|
++-------------------------------+
+|                          123.0|
++-------------------------------+
+```
+
+```sql
+（5）nullif(expr1,expr2)：如果expr1等于expr2，则返回null，否则返回expr1。
+eg:
+SELECT nullif(2, 2);
++------------+
+|nullif(2, 2)|
++------------+
+|        NULL|
++------------+
+```
+
+```sql
+（6）nvl2(expr1,expr2,expr3)：如果expr1不为null，则返回expr2，否则返回expr3。
+eg:
+SELECT nvl2(NULL, 2, 1);
++----------------+
+|nvl2(NULL, 2, 1)|
++----------------+
+|               1|
++----------------+
+```
+
+```sql
+（7）case when expr1 then expr2 [when expr3 then expr4]* [else expr5] end：当expr1为true时，返回expr2；否则，当expr3为true时，返回expr4；否则返回默认值expr5。
+eg:
+SELECT CASE WHEN 1 > 0 THEN 1 WHEN 2 > 0 THEN 2.0 ELSE 1.2 END;
++-----------------------------------------------------------+
+|CASE WHEN (1 > 0) THEN 1 WHEN (2 > 0) THEN 2.0 ELSE 1.2 END|
++-----------------------------------------------------------+
+|                                                        1.0|
++-----------------------------------------------------------+
+
+SELECT CASE WHEN 1 < 0 THEN 1 WHEN 2 > 0 THEN 2.0 ELSE 1.2 END;
++-----------------------------------------------------------+
+|CASE WHEN (1 < 0) THEN 1 WHEN (2 > 0) THEN 2.0 ELSE 1.2 END|
++-----------------------------------------------------------+
+|                                                        2.0|
++-----------------------------------------------------------+
+
+SELECT CASE WHEN 1 < 0 THEN 1 WHEN 2 < 0 THEN 2.0 END;
++--------------------------------------------------+
+|CASE WHEN (1 < 0) THEN 1 WHEN (2 < 0) THEN 2.0 END|
++--------------------------------------------------+
+|                                              NULL|
++--------------------------------------------------+
+```
+
+### 1.8、CSV函数
+
+```sql
+（1）from_csv(csvStr,schema[,options])：返回给定的csvStr和schema的结构值。
+eg:
+SELECT from_csv('1, 0.8', 'a INT, b DOUBLE');
++----------------+
+|from_csv(1, 0.8)|
++----------------+
+|        {1, 0.8}|
++----------------+
+
+SELECT from_csv('26/08/2015', 'time Timestamp', map('timestampFormat', 'dd/MM/yyyy'));
++--------------------+
+|from_csv(26/08/2015)|
++--------------------+
+|{2015-08-26 00:00...|
++--------------------+
+```
+
+```sql
+（2）schema_of_csv(csv[,options])：以csv字符串的DDL格式返回。
+eg:
+SELECT schema_of_csv('1,abc');
++--------------------+
+|schema_of_csv(1,abc)|
++--------------------+
+|STRUCT<_c0: INT, ...|
++--------------------+
+```
+
+```sql
+（3）to_csv(expr[,options])：返回给定结构值的CSV字符串。
+eg:
+SELECT to_csv(named_struct('a', 1, 'b', 2));
++--------------------------------+
+|to_csv(named_struct(a, 1, b, 2))|
++--------------------------------+
+|                             1,2|
++--------------------------------+
+
+SELECT to_csv(named_struct('time', to_timestamp('2015-08-26', 'yyyy-MM-dd')), map('timestampFormat', 'dd/MM/yyyy'));
++----------------------------------------------------------------+
+|to_csv(named_struct(time, to_timestamp(2015-08-26, yyyy-MM-dd)))|
++----------------------------------------------------------------+
+|                                                      26/08/2015|
++----------------------------------------------------------------+
+```
+
 
 
 ## 二、sparksql语法
@@ -2609,10 +2824,35 @@ row_format:
         [ LINES TERMINATED BY row_terminated_char ]
         [ NULL DEFINED AS null_char ]
 
+eg:(ESCAPED BY '\n'的意思是\n应该被转义)
+CREATE EXTERNAL TABLE family(
+	name STRING,
+    friends ARRAY<STRING>,
+    children MAP<STRING, INT>,
+    address STRUCT<street:STRING, city:STRING>
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY '\n'
+    COLLECTION ITEMS TERMINATED BY '_'
+    MAP KEYS TERMINATED BY ':'
+    LINES TERMINATED BY '\n'
+    NULL DEFINED AS 'foonull'
+    STORED AS TEXTFILE
+    LOCATION '/tmp/family/';
+    
+③ 使用like复制已存在的表结构
+CREATE TABLE [IF NOT EXISTS] table_identifier LIKE source_table_identifier
+    USING data_source
+    [ ROW FORMAT row_format ]
+    [ STORED AS file_format ]
+    [ TBLPROPERTIES ( key1=val1, key2=val2, ... ) ]
+    [ LOCATION path ]
+
 eg:
-CREATE EXTERNAL TABLE 
+CREATE TABLE Student_Dupli like Student USING CSV;
 
-
-
+CREATE TABLE Student_Dupli like Student
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+    STORED AS TEXTFILE
+    TBLPROPERTIES ('owner'='xxxx');
 ```
 
