@@ -3021,3 +3021,92 @@ CREATE FUNCTION simple_udf AS 'SimpleUdf'
     USING JAR '/tmp/SimpleUdf.jar';
 ```
 
+### 2.2、DML
+
+#### 2.2.1、使用INSERT向表中插入数据
+
+```sql
+INSERT [ INTO | OVERWRITE ] [ TABLE ] table_identifier [ partition_spec ] [ ( column_list ) ]
+    { VALUES ( { value | NULL } [ , ... ] ) [ , ( ... ) ] | query };
+    
+eg:
+INSERT INTO students VALUES
+    ('Amy Smith', '123 Park Ave, San Jose', 111111);
+    
+INSERT INTO students VALUES
+    ('Bob Brown', '456 Taylor St, Cupertino', 222222),
+    ('Cathy Johnson', '789 Race Ave, Palo Alto', 333333);
+```
+
+```sql
+INSERT INTO [ TABLE ] table_identifier REPLACE WHERE boolean_expression query;
+
+eg:
+INSERT INTO students PARTITION (student_id = 444444)
+    SELECT name, address FROM persons WHERE name = "Dora Williams";
+    
+INSERT INTO students TABLE visiting_students;
+
+INSERT INTO students
+     FROM applicants SELECT name, address, student_id WHERE qualified = true;
+     
+INSERT INTO persons REPLACE WHERE ssn = 123456789 SELECT * FROM persons2
+解释：将person2中的数据替换person中ssn=123456789的数据
+```
+
+#### 2.2.2、使用INSERT OVERWRITE DIRECTORY覆盖现有文件
+
+```sql
+INSERT OVERWRITE [ LOCAL ] DIRECTORY [ directory_path ]
+    { spark_format | hive_format }
+    { VALUES ( { value | NULL } [ , ... ] ) [ , ( ... ) ] | query };
+```
+
+```sql
+其中spark_format定义为
+USING file_format [ OPTIONS ( key = val [ , ... ] ) ]
+```
+
+```sql
+hive_format 定义为
+[ ROW FORMAT row_format ] [ STORED AS hive_serde ]
+```
+
+```sql
+spark格式
+eg:
+INSERT OVERWRITE DIRECTORY '/tmp/destination'
+    USING parquet
+    OPTIONS (col1 1, col2 2, col3 'test')
+    SELECT * FROM test_table;
+
+INSERT OVERWRITE DIRECTORY
+    USING parquet
+    OPTIONS ('path' '/tmp/destination', col1 1, col2 2, col3 'test')
+    SELECT * FROM test_table;
+```
+
+```sql
+hive格式
+eg:
+INSERT OVERWRITE LOCAL DIRECTORY '/tmp/destination'
+    STORED AS orc
+    SELECT * FROM test_table;
+
+INSERT OVERWRITE LOCAL DIRECTORY '/tmp/destination'
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+    SELECT * FROM test_table;
+```
+
+#### 2.2.3、使用LOAD DATA将数据加载到表
+
+```sparql
+LOAD DATA [ LOCAL ] INPATH path [ OVERWRITE ] INTO TABLE table_identifier [ partition_spec ]
+
+eg:
+LOAD DATA LOCAL INPATH '/user/hive/warehouse/students' OVERWRITE INTO TABLE test_load;
+
+LOAD DATA LOCAL INPATH '/user/hive/warehouse/test_partition/c2=2/c3=3'
+    OVERWRITE INTO TABLE test_load_partition PARTITION (c2=2, c3=3);
+```
+
