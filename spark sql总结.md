@@ -2749,8 +2749,9 @@ SELECT to_csv(named_struct('time', to_timestamp('2015-08-26', 'yyyy-MM-dd')), ma
 
 ### 2.1、DDL
 
+#### 2.1.1、创建数据库
+
 ```sql
-创建数据库
 CREATE { DATABASE | SCHEMA } [ IF NOT EXISTS ] database_name
     [ COMMENT database_comment ]
     [ LOCATION database_directory ]
@@ -2763,8 +2764,9 @@ LOCATION '/spark_db'
 WITH DBPROPERTIES(create_time='2024-10-28');
 ```
 
+#### 2.1.2、创建表
+
 ```sql
-创建表
 ① 创建数据源表
 CREATE TABLE [ IF NOT EXISTS ] table_identifier
     [ ( col_name1 col_type1 [ COMMENT col_comment1 ], ... ) ]
@@ -2854,5 +2856,168 @@ CREATE TABLE Student_Dupli like Student
     ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
     STORED AS TEXTFILE
     TBLPROPERTIES ('owner'='xxxx');
+```
+
+#### 2.1.3、创建视图
+
+```sql
+CREATE [ OR REPLACE ] [ [ GLOBAL ] TEMPORARY ] VIEW [ IF NOT EXISTS ] view_identifier
+    create_view_clauses AS query
+    
+eg:
+CREATE OR REPLACE VIEW experienced_employee
+    (ID COMMENT 'Unique identification number', Name) 
+    COMMENT 'View for experienced employees'
+    AS SELECT id, name FROM all_employee
+        WHERE working_years > 5;
+        
+        
+eg:
+CREATE GLOBAL TEMPORARY VIEW IF NOT EXISTS subscribed_movies 
+    AS SELECT mo.member_id, mb.full_name, mo.movie_title
+        FROM movies AS mo INNER JOIN members AS mb 
+        ON mo.member_id = mb.id;
+```
+
+#### 2.1.4、修改表
+
+```sql
+1、修改表名
+ALTER TABLE tbl_name RENAME TO new_tbl_name;
+
+eg:
+ALTER TABLE Student RENAME TO StudentInfo;
+```
+
+```sql
+2、修改表分区名
+ALTER TABLE tbl_name part_name RENAME TO new_part_name;
+
+eg:
+ALTER TABLE default.StudentInfo PARTITION (age='10') RENAME TO PARTITION (age='15');
+```
+
+```sql
+3、新增列
+ALTER TABLE tbl_name ADD COLUMNS (col_name col_type[,...]);
+
+eg:
+ALTER TABLE StudentInfo ADD columns (LastName string, DOB timestamp);
+```
+
+```sql
+4、删除列
+ALTER TABLE tbl_name DROP COLUMNS (col_name[,...]);
+
+eg:
+ALTER TABLE StudentInfo DROP columns (LastName, DOB);
+```
+
+```sql
+5、修改列名
+ALTER TBALE tbl_name RENAME COLUMN col_name TO new_col_name;
+
+eg:
+ALTER TABLE StudentInfo RENAME COLUMN name TO FirstName;
+```
+
+```sql
+6、修改列定义
+ALTER TABLE tbl_name [ALTER|CHANGE] COLUMN col_name new_col_type;
+
+eg:
+ALTER TABLE StudentInfo ALTER COLUMN FirstName COMMENT "new comment";
+```
+
+```sql
+7、重新定义列
+ALTER TABLE tbl_name REPLACE COLUMNS (col_name col_type[,...]);
+
+eg:
+ALTER TABLE StudentInfo REPLACE COLUMNS (name string, ID int COMMENT 'new comment');
+```
+
+```sql
+8、添加分区
+ALTER TABLE tbl_name ADD [IF NOT EXISTS] PARTITION (part_name1) PARTITION (part_name2);
+
+eg:
+ALTER TABLE StudentInfo ADD IF NOT EXISTS PARTITION (age=18);
+
+ALTER TABLE StudentInfo ADD IF NOT EXISTS PARTITION (age=18) PARTITION (age=20);
+```
+
+```sql
+9、删除分区
+ALTER TABLE tbl_name DROP [IF EXISTS] PARTITION (part_name[,...]);
+
+eg:
+ALTER TABLE StudentInfo DROP IF EXISTS PARTITION (age=18);
+```
+
+```sql
+10、设置表属性
+ALTER TABLE tbl_name SET TBLPROPERTIES(key1=val1[,...]);
+
+eg:
+ALTER TABLE dbx.tab1 SET TBLPROPERTIES ('winner' = 'loser');
+
+ALTER TABLE dbx.tab1 SET TBLPROPERTIES ('comment' = 'A table comment.');
+```
+
+```sql
+11、删除表属性
+ALTER TABLE tbl_name UNSET TBLPROPERTIES [IF EXISTS](key1[,...]);
+
+eg:
+ALTER TABLE dbx.tab1 UNSET TBLPROPERTIES ('winner');
+```
+
+```sql
+12、设置序列化格式
+ALTER TABLE tbl_name [part_name] SET SERDEPROPERTIES (key1=val1, key2=val2[,...]);
+
+ALTER TABLE tbl_name [part_name] SET SERDE serde_class_name [WITH SERDEPROPERTIES ( key1 = val1, key2 = val2, ... )];
+
+eg:
+ALTER TABLE test_tab SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe';
+```
+
+```sql
+13、设置表或分区存储路径
+ALTER TABLE tbl_name [part_name] SET LOCATION 'new_location';
+
+eg:
+ALTER TABLE dbx.tab1 PARTITION (a='1', b='2') SET LOCATION '/path/to/part/ways'
+```
+
+```sql
+14、设置表文件格式
+ALTER TABLE tbl_name [part_name] SET FILEFORMAT file_format;
+
+eg:
+ALTER TABLE loc_orc SET fileformat orc;
+
+ALTER TABLE p1 partition (month=2, day=2) SET fileformat parquet;
+```
+
+```sql
+15、修复表
+ALTER TABLE tbl_name RECOVER PARTITIONS;
+或 MSCK REPAIR TABLE tbl_name [{ADD|DROP|SYNC} PARTITIONS];(默认ADD，SYNC是ADD和DROP的组合)
+
+eg:
+ALTER TABLE dbx.tab1 RECOVER PARTITIONS;
+```
+
+#### 2.1.5、创建函数
+
+```sql
+CREATE [ OR REPLACE ] [ TEMPORARY ] FUNCTION [ IF NOT EXISTS ]
+    function_name AS class_name [ resource_locations ];
+    
+eg:
+CREATE FUNCTION simple_udf AS 'SimpleUdf'
+    USING JAR '/tmp/SimpleUdf.jar';
 ```
 
