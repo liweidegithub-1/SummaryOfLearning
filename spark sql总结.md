@@ -3110,3 +3110,176 @@ LOAD DATA LOCAL INPATH '/user/hive/warehouse/test_partition/c2=2/c3=3'
     OVERWRITE INTO TABLE test_load_partition PARTITION (c2=2, c3=3);
 ```
 
+### 2.3、查询
+
+#### 2.3.1、WITH
+
+```SPARQL
+WITH common_table_expression [ , ... ]
+其中 common_table_expression 为
+expression_name [ ( column_name [ , ... ] ) ] [ AS ] ( query );
+
+eg:
+WITH
+    t AS (SELECT 1),
+    t2 AS (
+        WITH t AS (SELECT 2)
+        SELECT * FROM t
+    );
+```
+
+#### 2.3.2、CLUSTER BY
+
+```SPARQL
+对查询数据进行分区，然后对每个分区中的数据进行排序（等同于先执行DISTRIBUTE BY，再执行SORT BY）
+CLUSTER BY { expression [ , ... ] }
+
+eg:
+SELECT age, name FROM person CLUSTER BY age;
++---+-------+
+|age|   name|
++---+-------+
+| 18| John A|
+| 18| Anil B|
+| 25|Zen Hui|
+| 25| Mike A|
+| 16|Shone S|
+| 16| Jack N|
++---+-------+
+```
+
+#### 2.3.3、DISTRIBUTE BY
+
+```SPARQL
+对查询数据重新分区
+DISTRIBUTE BY { expression [ , ... ] };
+
+eg:
+SELECT age, name FROM person DISTRIBUTE BY age;
++---+-------+
+|age|   name|
++---+-------+
+| 25|Zen Hui|
+| 25| Mike A|
+| 18| John A|
+| 18| Anil B|
+| 16|Shone S|
+| 16| Jack N|
++---+-------+
+```
+
+#### 3.3.4、GROUP BY
+
+```SPARQL
+GROUP BY group_expression [ , group_expression [ , ... ] ] [ WITH { ROLLUP | CUBE } ];
+
+GROUP BY { group_expression | { ROLLUP | CUBE | GROUPING SETS } (grouping_set [ , ...]) } [ , ... ];
+
+聚合函数定义为
+aggregate_name ( [ DISTINCT ] expression [ , ... ] ) [ FILTER ( WHERE boolean_expression ) ];
+
+参数解释：
+GROUPING SETS：将多个分组条件合并为一个集合，相当于多个group by的结果UNION ALL。GROUP BY GROUPING SETS((name,age),(name))相当于GROUP BY name,age UNION ALL GROUP BY name。
+
+ROLLUP：是GROUPING SETS的简写形式。例如GROUP BY warehouse,product WITH ROLLUP或GROUP BY ROLLUP(warehouse,product)等同于GROUP BY GROUPING SETS((warehouse,product),(warehouse))。ROLLUP规范的N个元素会生成N+1个GROUPING SETS。
+
+CUBE：是GROUPING SETS的简写形式。例如GROUP BY warehouse,product WITH CUBE或GROUP BY CUBE(warehouse,product)等同于GROUP BY GROUPING SETS((warehouse,product),(warehouse),(product),())。CUBE规范的N个元素会生成2^N个GROUPING SETS。
+
+FILTER：过滤输入行，其中where子句为true的行将传递给聚合函数，其他行将被丢弃。
+
+eg:
+SELECT id, sum(quantity) FILTER (
+            WHERE car_model IN ('Honda Civic', 'Honda CRV')
+        ) AS `sum(quantity)` FROM dealer
+    GROUP BY id ORDER BY id;
++---+-------------+
+| id|sum(quantity)|
++---+-------------+
+|100|           17|
+|200|           23|
+|300|            5|
++---+-------------+
+
+
+SELECT city, car_model, sum(quantity) AS sum FROM dealer
+    GROUP BY GROUPING SETS ((city, car_model), (city), (car_model), ())
+    ORDER BY city;
++---------+------------+---+
+|     city|   car_model|sum|
++---------+------------+---+
+|     null|        null| 78|
+|     null| HondaAccord| 33|
+|     null|    HondaCRV| 10|
+|     null|  HondaCivic| 35|
+|   Dublin|        null| 33|
+|   Dublin| HondaAccord| 10|
+|   Dublin|    HondaCRV|  3|
+|   Dublin|  HondaCivic| 20|
+|  Fremont|        null| 32|
+|  Fremont| HondaAccord| 15|
+|  Fremont|    HondaCRV|  7|
+|  Fremont|  HondaCivic| 10|
+| San Jose|        null| 13|
+| San Jose| HondaAccord|  8|
+| San Jose|  HondaCivic|  5|
++---------+------------+---+
+
+SELECT city, car_model, sum(quantity) AS sum FROM dealer
+    GROUP BY city, car_model WITH ROLLUP
+    ORDER BY city, car_model;
++---------+------------+---+
+|     city|   car_model|sum|
++---------+------------+---+
+|     null|        null| 78|
+|   Dublin|        null| 33|
+|   Dublin| HondaAccord| 10|
+|   Dublin|    HondaCRV|  3|
+|   Dublin|  HondaCivic| 20|
+|  Fremont|        null| 32|
+|  Fremont| HondaAccord| 15|
+|  Fremont|    HondaCRV|  7|
+|  Fremont|  HondaCivic| 10|
+| San Jose|        null| 13|
+| San Jose| HondaAccord|  8|
+| San Jose|  HondaCivic|  5|
++---------+------------+---+
+
+SELECT city, car_model, sum(quantity) AS sum FROM dealer
+    GROUP BY city, car_model WITH CUBE
+    ORDER BY city, car_model;
++---------+------------+---+
+|     city|   car_model|sum|
++---------+------------+---+
+|     null|        null| 78|
+|     null| HondaAccord| 33|
+|     null|    HondaCRV| 10|
+|     null|  HondaCivic| 35|
+|   Dublin|        null| 33|
+|   Dublin| HondaAccord| 10|
+|   Dublin|    HondaCRV|  3|
+|   Dublin|  HondaCivic| 20|
+|  Fremont|        null| 32|
+|  Fremont| HondaAccord| 15|
+|  Fremont|    HondaCRV|  7|
+|  Fremont|  HondaCivic| 10|
+| San Jose|        null| 13|
+| San Jose| HondaAccord|  8|
+| San Jose|  HondaCivic|  5|
++---------+------------+---+
+```
+
+#### 3.3.5、提示
+
+```SPARQL
+提示为用户提供了一种方法，可以建议sparksql使用特定方法来生成执行计划
+/*+ hint [ , ... ] */
+```
+
+```SPARQL
+分区提示：允许用户指定spark应该遵循的分区策略
+COALESCE：使用coalesce提示将分区数量减少到指定的分区数量。将分区数量作为参数
+REPARTITION：使用指定的分区表达式将分区重新分区到指定的分区数量。将分区数量、列名作为参数
+REPARTITION_BY_RANGE：使用指定的分区表达式将分区重新分区到指定的分区数量。将列名和分区数量作为参数
+REBALANCE：重新平衡查询结果输出分区，以便每个分区的大小都合理。将列名作为参数
+```
+
