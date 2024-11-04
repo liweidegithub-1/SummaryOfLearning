@@ -3281,5 +3281,139 @@ COALESCE：使用coalesce提示将分区数量减少到指定的分区数量。�
 REPARTITION：使用指定的分区表达式将分区重新分区到指定的分区数量。将分区数量、列名作为参数
 REPARTITION_BY_RANGE：使用指定的分区表达式将分区重新分区到指定的分区数量。将列名和分区数量作为参数
 REBALANCE：重新平衡查询结果输出分区，以便每个分区的大小都合理。将列名作为参数
+
+eg:
+SELECT /*+ COALESCE(3) */ * FROM t;
+
+SELECT /*+ REPARTITION(3) */ * FROM t;
+
+SELECT /*+ REPARTITION(c) */ * FROM t;
+
+SELECT /*+ REPARTITION(3, c) */ * FROM t;
+
+SELECT /*+ REPARTITION_BY_RANGE(c) */ * FROM t;
+
+SELECT /*+ REPARTITION_BY_RANGE(3, c) */ * FROM t;
+
+SELECT /*+ REBALANCE */ * FROM t;
+
+SELECT /*+ REBALANCE(3) */ * FROM t;
+
+SELECT /*+ REBALANCE(c) */ * FROM t;
+
+SELECT /*+ REBALANCE(3, c) */ * FROM t;
+```
+
+```SPARQL
+连接提示：允许用户指定spark应该使用的连接策略
+BROADCAST：使用广播连接。具有提示的连接侧将被广播，如果两侧都有广播，则大小较小的一侧将被广播。
+MERGE：使用shuffle排序合并连接。
+SHUFFLE_HASH：使用shuffle哈希连接、
+SHUFFLE_REPLICATE_NL：使用shuffle和复制嵌套循环连接。
+
+eg:
+-- Join Hints for broadcast join
+SELECT /*+ BROADCAST(t1) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+SELECT /*+ BROADCASTJOIN (t1) */ * FROM t1 left JOIN t2 ON t1.key = t2.key;
+SELECT /*+ MAPJOIN(t2) */ * FROM t1 right JOIN t2 ON t1.key = t2.key;
+
+-- Join Hints for shuffle sort merge join
+SELECT /*+ SHUFFLE_MERGE(t1) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+SELECT /*+ MERGEJOIN(t2) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+SELECT /*+ MERGE(t1) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+
+-- Join Hints for shuffle hash join
+SELECT /*+ SHUFFLE_HASH(t1) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+
+-- Join Hints for shuffle-and-replicate nested loop join
+SELECT /*+ SHUFFLE_REPLICATE_NL(t1) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+
+-- When different join strategy hints are specified on both sides of a join, Spark
+-- prioritizes the BROADCAST hint over the MERGE hint over the SHUFFLE_HASH hint
+-- over the SHUFFLE_REPLICATE_NL hint.
+-- Spark will issue Warning in the following example
+-- org.apache.spark.sql.catalyst.analysis.HintErrorLogger: Hint (strategy=merge)
+-- is overridden by another hint and will not take effect.
+SELECT /*+ BROADCAST(t1), MERGE(t1, t2) */ * FROM t1 INNER JOIN t2 ON t1.key = t2.key;
+```
+
+#### 3.3.6、使用SQL直接查询指定格式文件
+
+```SPARQL
+file_format.'file_path'
+
+eg:
+-- PARQUET file
+SELECT * FROM parquet.`examples/src/main/resources/users.parquet`;
++------+--------------+----------------+
+|  name|favorite_color|favorite_numbers|
++------+--------------+----------------+
+|Alyssa|          null|  [3, 9, 15, 20]|
+|   Ben|           red|              []|
++------+--------------+----------------+
+
+-- ORC file
+SELECT * FROM orc.`examples/src/main/resources/users.orc`;
++------+--------------+----------------+
+|  name|favorite_color|favorite_numbers|
++------+--------------+----------------+
+|Alyssa|          null|  [3, 9, 15, 20]|
+|   Ben|           red|              []|
++------+--------------+----------------+
+
+-- JSON file
+SELECT * FROM json.`examples/src/main/resources/people.json`;
++----+-------+
+| age|   name|
++----+-------+
+|null|Michael|
+|  30|   Andy|
+|  19| Justin|
++----+-------+
+```
+
+#### 3.3.7、OFFSET指定跳过的行数
+
+```SPARQL
+OFFSET integer_expression;
+
+eg:
+CREATE TABLE person (name STRING, age INT);
+INSERT INTO person VALUES
+    ('Zen Hui', 25),
+    ('Anil B', 18),
+    ('Shone S', 16),
+    ('Mike A', 25),
+    ('John A', 18),
+    ('Jack N', 16);
+
+-- Skip the first two rows.
+SELECT name, age FROM person ORDER BY name OFFSET 2;
++-------+---+
+|   name|age|
++-------+---+
+| John A| 18|
+| Mike A| 25|
+|Shone S| 16|
+|Zen Hui| 25|
++-------+---+
+
+-- Skip the first two rows and returns the next three rows.
+SELECT name, age FROM person ORDER BY name LIMIT 3 OFFSET 2;
++-------+---+
+|   name|age|
++-------+---+
+| John A| 18|
+| Mike A| 25|
+|Shone S| 16|
++-------+---+
+
+-- A function expression as an input to OFFSET.
+SELECT name, age FROM person ORDER BY name OFFSET length('SPARK');
++-------+---+
+|   name|age|
++-------+---+
+|Zen Hui| 25|
++-------+---+
 ```
 
