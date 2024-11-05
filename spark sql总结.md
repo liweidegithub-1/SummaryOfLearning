@@ -3417,3 +3417,131 @@ SELECT name, age FROM person ORDER BY name OFFSET length('SPARK');
 +-------+---+
 ```
 
+#### 2.3.8、表值函数（TVF）
+
+```SPARQL
+可以在from子句中指定的TVF
+
+range(end)：创建一个包含名为id的单个LongType列的表，包含从0到end（不包含）的范围内的行，步长为1。
+eg:
+SELECT * FROM range(6 + cos(3));
++---+
+| id|
++---+
+|  0|
+|  1|
+|  2|
+|  3|
+|  4|
++---+
+
+range(start, end)：创建一个包含名为id的单个LongType列的表，包含从start到end（不包含）的范围内的行，步长为1。
+eg:
+SELECT * FROM range(5, 10);
++---+
+| id|
++---+
+|  5|
+|  6|
+|  7|
+|  8|
+|  9|
++---+
+
+range(start, end, step)：创建一个包含名为id的单个LongType列的表，包含从start到end（不包含）的范围内的行，步长为step。
+
+range(start, end, step, numPartitions)：创建一个包含名为id的单个LongType列的表，包含从start到end（不包含）的范围内的行，步长为step，并指定分区数numPartitions。
+eg:
+SELECT * FROM range(0, 10, 2, 200);
++---+
+| id|
++---+
+|  0|
+|  2|
+|  4|
+|  6|
+|  8|
++---+
+```
+
+```SPARQL
+可以在select/lateal view子句中指定的TVF
+
+explode(expr)：将数组expr的元素分成多行，或将映射expr的元素分成多行和多列。
+eg:
+SELECT explode(array(10, 20));
++---+
+|col|
++---+
+| 10|
+| 20|
++---+
+
+CREATE TABLE test (c1 INT);
+INSERT INTO test VALUES (1);
+INSERT INTO test VALUES (2);
+SELECT * FROM test LATERAL VIEW explode (ARRAY(3,4)) AS c2;
++--+--+
+|c1|c2|
++--+--+
+| 1| 3|
+| 1| 4|
+| 2| 3|
+| 2| 4|
++--+--+
+
+explode_outer(expr)：将数组expr的元素分成多行，或将映射expr的元素分成多行和多列。
+
+inline(expr)：将结构体数组展开为表。
+eg:
+SELECT inline(array(struct(1, 'a'), struct(2, 'b')));
++----+----+
+|col1|col2|
++----+----+
+|   1|   a|
+|   2|   b|
++----+----+
+
+inline_outer(expr)：将结构体数组展开为表。
+
+posexplode(expr)：将数组expr的元素分成多行，并带有位置，或将映射expr的元素分成多行或多列，并带有位置。
+eg:
+SELECT posexplode(array(10,20));
++---+---+
+|pos|col|
++---+---+
+|  0| 10|
+|  1| 20|
++---+---+
+
+posexplode_outer(expr)：将数组expr的元素分成多行，并带有位置，或将映射expr的元素分成多行或多列，并带有位置。
+
+stack(n, expr1,...,exprk)：将expr1,...exprk分成n行。
+eg:
+SELECT stack(2, 1, 2, 3);
++----+----+
+|col0|col1|
++----+----+
+|   1|   2|
+|   3|null|
++----+----+
+
+json_tuple(jsonStr,p1,p2,...pn)：返回类似于函数get_json_object的元组，但它接受多个名称。所有输入参数和输出列类型均为字符串。
+eg:
+SELECT json_tuple('{"a":1, "b":2}', 'a', 'b');
++---+---+
+| c0| c1|
++---+---+
+|  1|  2|
++---+---+
+
+parse_url(url,partToextract[,key])：从url中提取一部分。
+eg:
+SELECT parse_url('https://spark.apache.ac.cn/path?query=1', 'HOST');
++-----------------------------------------------------+
+|parse_url(http://spark.apache.org/path?query=1, HOST)|
++-----------------------------------------------------+
+|                                     spark.apache.org|
++-----------------------------------------------------+
+```
+
