@@ -691,7 +691,7 @@
 		-i	--ignore-interrupts 忽略中断信号
 ```
 
-## 十六、
+## 十六、定义变量
 
 ```shell
 shell定义变量及类型
@@ -863,9 +863,43 @@ bg 作业号：后台继续执行作业
 	rsync [参数] source/ username@host:/destination
 ```
 
-## 二十三、
+## 二十三、字符串截取
 
-
+```shell
+一、${str:开始索引:截取长度}
+1.1、解释
+	① str为需要截取的字符串
+	② 索引从0开始
+	③ 截取长度可不写，不写则为从开始索引至结尾
+1.2、示例
+	str="Hello World!"
+	
+	#从第7个字符开始，截取5个字符
+	echo ${str:6:5} #输出World
+	
+	#从第7个字符开始，截取到末尾
+	echo ${str:6} #输World!
+	
+	#从倒数第6个字符开始截取，至末尾
+	echo ${str: -6} #输出World!（-和:之间要有一个空格）
+二、从开头或结尾删除
+2.1、删除左边（前缀），保留右边
+2.1.1、解释
+	${str#pattern} #删除最短匹配
+	${str##pattern} #删除最长匹配
+2.1.2、示例
+	str="path/to/file.txt"
+	echo ${str#*/} #输出to/file.txt（删除匹配到的第一个pattern）
+	echo ${str##*/} #输出file.txt（删除最后一个匹配到的pattern）
+2.2、删除右边（后缀），保留左边
+2.2.1、解释
+	${str%*/} #删除最短匹配
+	${str%%*/} #删除最长匹配
+2.2.2、示例
+	str="path/to/file.txt"
+	echo ${str%/*} #输出path/to（删除匹配到的第一个pattern）
+	echo ${str%%/*} #输出path（删除最后一个匹配到的pattern）
+```
 
 
 
